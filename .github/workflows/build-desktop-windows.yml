@@ -25,7 +25,7 @@ jobs:
             ui/goose2/src-tauri/target
           key: windows-tauri-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Install Node.js
+      - name: Install Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -33,26 +33,43 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.33.0
 
-      - name: Install frontend deps
+      - name: Install all workspace deps
         working-directory: ui
-        run: pnpm install --filter goose2...
+        run: |
+          (Get-Content pnpm-workspace.yaml) -replace "  - 'desktop'", "" | Set-Content pnpm-workspace.yaml
+          pnpm install --no-frozen-lockfile
+        shell: pwsh
 
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+      - name: Build SDK first
+        working-directory: ui/sdk
+        run: pnpm build
+
+      - name: Build text package
+        working-directory: ui/text
+        run: pnpm build
+
+      - name: Install WebView2
+        run: |
+          Invoke-WebRequest -Uri 'https://go.microsoft.com/fwlink/p/?LinkId=2124703' -OutFile 'webview2.exe'
+          Start-Process -FilePath 'webview2.exe' -Args '/silent /install' -Wait
+        shell: pwsh
+
+      - name: Build Tauri desktop app
+        working-directory: ui/goose2
+        run: pnpm tauri build --no-bundle
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          projectPath: ui/goose2
-          tauriScript: pnpm tauri
-          args: --no-default-features
+          TAURI_SIGNING_PRIVATE_KEY: ""
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: alfa-opera-windows-installer
+          name: alfa-opera-windows-desktop
           path: |
             ui/goose2/src-tauri/target/release/bundle/msi/*.msi
             ui/goose2/src-tauri/target/release/bundle/nsis/*.exe
+            ui/goose2/src-tauri/target/release/*.exe
           retention-days: 30
+          if-no-files-found: warn
