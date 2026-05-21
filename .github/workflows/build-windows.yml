@@ -33,7 +33,7 @@ jobs:
         run: copy target\release\goose.exe alfa-opera-windows-x64.exe
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: alfa-opera-windows-x64
           path: alfa-opera-windows-x64.exe
